@@ -234,7 +234,7 @@ public class WearableServiceImpl extends IWearableService.Stub {
     @Override
     @Deprecated
     public void getCloudSyncOptInDone(IWearableCallbacks callbacks) throws RemoteException {
-        Log.d(TAG, "unimplemented Method: getCloudSyncOptInDone");
+        callbacks.onGetCloudSyncOptInOutDoneResponse(new GetCloudSyncOptInOutDoneResponse());
     }
 
     @Override
@@ -249,7 +249,7 @@ public class WearableServiceImpl extends IWearableService.Stub {
 
     @Override
     public void getCloudSyncOptInStatus(IWearableCallbacks callbacks) throws RemoteException {
-        Log.d(TAG, "unimplemented Method: getCloudSyncOptInStatus");
+        callbacks.onGetCloudSyncOptInStatusResponse(new GetCloudSyncOptInStatusResponse());
     }
 
     @Override
@@ -294,8 +294,13 @@ public class WearableServiceImpl extends IWearableService.Stub {
 
     @Override
     public void getAllCapabilities(IWearableCallbacks callbacks, int nodeFilter) throws RemoteException {
-        Log.d(TAG, "unimplemented Method: getConnectedCapaibilties: " + nodeFilter);
-        callbacks.onGetAllCapabilitiesResponse(new GetAllCapabilitiesResponse());
+        Log.d(TAG, "getAllCapabilities: " + nodeFilter);
+        postMain(callbacks, () -> {
+            GetAllCapabilitiesResponse response = new GetAllCapabilitiesResponse();
+            response.statusCode = 0;
+            response.capabilities = wearable.getAllCapabilityInfos();
+            callbacks.onGetAllCapabilitiesResponse(response);
+        });
     }
 
     @Override
@@ -336,7 +341,7 @@ public class WearableServiceImpl extends IWearableService.Stub {
 
     @Override
     public void getStorageInformation(IWearableCallbacks callbacks) throws RemoteException {
-        Log.d(TAG, "unimplemented Method: getStorageInformation");
+        callbacks.onStorageInfoResponse(new StorageInfoResponse());
     }
 
     @Override
