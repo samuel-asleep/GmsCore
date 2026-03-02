@@ -15,6 +15,21 @@ jobs:
     strategy:
       matrix:
         target: [Debug, Release]
+        include:
+          # Debug: build all variants so every flavor is compile-checked.
+          - target: Debug
+            assembleTask: assembleDebug
+            lintTask: lintDebug
+          # Release: build only the primary open-source variant (vtm maps +
+          # default Android target) to produce a ~100 MB artifact instead of
+          # packaging all 15 flavor combinations (~1 GB).
+          - target: Release
+            assembleTask: >-
+              :play-services-core:assembleVtmDefaultRelease
+              :vending-app:assembleDefaultRelease
+            lintTask: >-
+              :play-services-core:lintVtmDefaultRelease
+              :vending-app:lintDefaultRelease
 
     steps:
       - name: "Free disk space"
@@ -59,9 +74,9 @@ jobs:
             fi
           done
       - name: "Execute Gradle assemble"
-        run: "./gradlew assemble${{ matrix.target }}"
+        run: "./gradlew ${{ matrix.assembleTask }}"
       - name: "Execute Gradle lint"
-        run: "./gradlew lint${{ matrix.target }}"
+        run: "./gradlew ${{ matrix.lintTask }}"
       - name: "Verify APK sizes"
         run: |
           # Find all output APKs (exclude intermediates) and verify none exceed 1 GB
@@ -88,6 +103,6 @@ jobs:
         with:
           name: apk-release
           path: |
-            play-services-core/build/outputs/apk/**/*.apk
-            vending-app/build/outputs/apk/**/*.apk
+            play-services-core/build/outputs/apk/vtmDefault/release/*.apk
+            vending-app/build/outputs/apk/default/release/*.apk
           if-no-files-found: error
