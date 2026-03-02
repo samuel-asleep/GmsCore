@@ -62,3 +62,32 @@ jobs:
         run: "./gradlew assemble${{ matrix.target }}"
       - name: "Execute Gradle lint"
         run: "./gradlew lint${{ matrix.target }}"
+      - name: "Verify APK sizes"
+        run: |
+          # Find all output APKs (exclude intermediates) and verify none exceed 1 GB
+          limit_bytes=$((1024 * 1024 * 1024))
+          found=0
+          oversized=0
+          while IFS= read -r apk; do
+            size=$(wc -c < "$apk")
+            size_mb=$(( size / 1024 / 1024 ))
+            echo "APK: $apk  size: ${size_mb} MB"
+            found=$(( found + 1 ))
+            if [ "$size" -gt "$limit_bytes" ]; then
+              echo "::error file=$apk::APK exceeds 1 GB limit (${size_mb} MB)"
+              oversized=$(( oversized + 1 ))
+            fi
+          done < <(find . -name '*.apk' -not -path '*/intermediates/*')
+          echo "Found $found APK(s), $oversized oversized."
+          if [ "$oversized" -gt 0 ]; then
+            exit 1
+          fi
+      - name: "Upload APK artifacts"
+        if: matrix.target == 'Release'
+        uses: actions/upload-artifact@v4
+        with:
+          name: apk-release
+          path: |
+            play-services-core/build/outputs/apk/**/*.apk
+            vending-app/build/outputs/apk/**/*.apk
+          if-no-files-found: error
