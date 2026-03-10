@@ -21,6 +21,11 @@ android {
         multiDexEnabled true
     }
 
+    signingConfigs {
+        debug {
+        }
+    }
+
     buildTypes {
         debug {
             postprocessing {
@@ -39,6 +44,7 @@ android {
                 optimizeCode true
                 proguardFile 'proguard-rules.pro'
             }
+            signingConfig signingConfigs.debug
         }
     }
 

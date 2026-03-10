@@ -157,10 +157,18 @@ android {
         disable 'MissingTranslation', 'GetLocales', 'InvalidPackage', 'BatteryLife', 'ImpliedQuantity', 'MissingQuantity', 'InvalidWakeLockTag', 'UniquePermission'
     }
 
+    signingConfigs {
+        // Fallback signing with debug keystore so release APKs are installable.
+        // Override in user.gradle with a real keystore for production builds.
+        debug {
+        }
+    }
+
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.debug
         }
     }
 
