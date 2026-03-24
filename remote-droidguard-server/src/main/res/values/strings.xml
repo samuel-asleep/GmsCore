@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ~ SPDX-FileCopyrightText: 2025 microG Project Team
+  ~ SPDX-License-Identifier: Apache-2.0
+  -->
+<resources>
+    <string name="app_name">Remote DroidGuard Server</string>
+    <string name="qr_code_description">QR code for connecting to this DroidGuard server</string>
+    <string name="status_label">Status:</string>
+    <string name="status_idle">Idle</string>
+    <string name="status_listening">Listening on %1$s:%2$d</string>
+    <string name="status_processing">Processing</string>
+    <string name="btn_start_server">Start Server</string>
+    <string name="btn_stop_server">Stop Server</string>
+    <string name="notification_channel_name">DroidGuard Server</string>
+    <string name="notification_channel_description">Foreground notification for the Remote DroidGuard Server</string>
+    <string name="notification_title">Remote DroidGuard Server</string>
+    <string name="notification_text_idle">Server is stopped</string>
+    <string name="notification_text_listening">Listening on %1$s:%2$d</string>
+    <string name="notification_text_processing">Processing a DroidGuard challenge…</string>
+    <string name="server_address_format">microg-dg://%1$s:%2$d</string>
+</resources>
