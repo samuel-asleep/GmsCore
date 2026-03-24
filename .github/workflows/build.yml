@@ -103,8 +103,7 @@ jobs:
           # Find and copy core and vending APKs
           find play-services-core/build/outputs/apk/vtmDefault/release \
                vending-app/build/outputs/apk/default/release \
-               -name '*.apk' -exec cp {} /tmp/release-apks/ \
-           ;
+               -name '*.apk' -exec cp {} /tmp/release-apks/ \;
           
           # Copy and rename Remote DroidGuard Server APK
           rdg_apk=$(find remote-droidguard-server/build/outputs/apk/release -name '*.apk' | head -1)
