@@ -13,10 +13,27 @@ on:
 
 jobs:
   build:
-    name: "Build Remote DroidGuard Server (debug)"
+    name: "Gradle build ${{ matrix.target }}"
     runs-on: ubuntu-latest
     env:
       GRADLE_MICROG_VERSION_WITHOUT_GIT: 1
+
+    strategy:
+      matrix:
+        target: [Debug, Release]
+        include:
+          - target: Debug
+            assembleTask: assembleDebug
+            lintTask: lintDebug
+          - target: Release
+            assembleTask: >-
+              :play-services-core:assembleVtmDefaultRelease
+              :vending-app:assembleDefaultRelease
+              :remote-droidguard-server:assembleRelease
+            lintTask: >-
+              :play-services-core:lintVtmDefaultRelease
+              :vending-app:lintDefaultRelease
+              :remote-droidguard-server:lintRelease
 
     steps:
       - name: "Free disk space"
@@ -24,16 +41,19 @@ jobs:
           sudo rm -rf /opt/hostedtoolcache/CodeQL
           sudo rm -rf /opt/hostedtoolcache/go
           df -h
+
       - name: "Checkout sources"
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
           ref: ${{ inputs.ref || github.ref }}
+
       - name: "Setup Java"
         uses: actions/setup-java@v5
         with:
           distribution: "temurin"
           java-version: "17"
+
       - name: "Setup Gradle"
         uses: gradle/actions/setup-gradle@v5
         with:
@@ -41,11 +61,83 @@ jobs:
           build-scan-publish: true
           build-scan-terms-of-use-url: "https://gradle.com/help/legal-terms-of-use"
           build-scan-terms-of-use-agree: "yes"
-      - name: "Assemble debug APK"
-        run: "./gradlew :remote-droidguard-server:assembleDebug"
-      - name: "Upload debug APK"
+
+      - name: "Setup matchers"
+        run: |
+          matchers_dir='${{ github.workspace }}/.github/matchers'
+          echo 'gradle-build-matcher.json' > matcher.list
+          echo 'gradle-build-kotlin-error-matcher.json' >> matcher.list
+          cat matcher.list | while read -r NAME; do
+            if [ -f "$matchers_dir/$NAME" ]; then
+              echo "::add-matcher::$matchers_dir/$NAME"
+            fi
+          done
+
+      - name: "Execute Gradle assemble"
+        run: "./gradlew ${{ matrix.assembleTask }}"
+
+      - name: "Execute Gradle lint"
+        run: "./gradlew ${{ matrix.lintTask }}"
+
+      - name: "Verify APK sizes"
+        run: |
+          limit_bytes=$((1024 * 1024 * 1024))
+          found=0
+          oversized=0
+          while IFS= read -r apk; do
+            size=$(wc -c < "$apk")
+            size_mb=$(( size / 1024 / 1024 ))
+            echo "APK: $apk  size: ${size_mb} MB"
+            found=$(( found + 1 ))
+            if [ "$size" -gt "$limit_bytes" ]; then
+              echo "::error file=$apk::APK exceeds 1 GB limit (${size_mb} MB)"
+              oversized=$(( oversized + 1 ))
+            fi
+          done < <(find . -name '*.apk' -not -path '*/intermediates/*')
+          if [ "$oversized" -gt 0 ]; then exit 1; fi
+
+      - name: "Stage release APKs"
+        if: matrix.target == 'Release'
+        run: |
+          mkdir -p /tmp/release-apks
+          find play-services-core/build/outputs/apk/vtmDefault/release \
+               vending-app/build/outputs/apk/default/release \
+               -name '*.apk' -exec cp {} /tmp/release-apks/ \;
+          rdg_apk=$(find remote-droidguard-server/build/outputs/apk/release -name '*.apk' | head -1)
+          if [ -n "$rdg_apk" ]; then
+            cp "$rdg_apk" /tmp/release-apks/RemoteDroidGuard-Server.apk
+          fi
+
+      - name: "Sign RemoteDroidGuard-Server.apk with debug key"
+        if: matrix.target == 'Release'
+        run: |
+          # Locate the debug keystore usually provided by the Android SDK setup on GitHub Runners
+          DEBUG_KEYSTORE="$ANDROID_SDK_ROOT/build-tools/$(ls -1 $ANDROID_SDK_ROOT/build-tools | sort -r | head -1)/debug.keystore"
+          
+          # If the default SDK keystore isn't found, generate a temporary one
+          if [ ! -f "$DEBUG_KEYSTORE" ]; then
+            keytool -genkey -v -keystore /tmp/debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+            DEBUG_KEYSTORE="/tmp/debug.keystore"
+          fi
+          
+          # Use apksigner to sign the APK
+          apksigner sign --ks "$DEBUG_KEYSTORE" --ks-pass pass:android --key-pass pass:android --ks-key-alias androiddebugkey /tmp/release-apks/RemoteDroidGuard-Server.apk
+          
+          # Verify the signature
+          apksigner verify /tmp/release-apks/RemoteDroidGuard-Server.apk
+
+      - name: "Upload APK artifacts"
+        if: matrix.target == 'Release'
         uses: actions/upload-artifact@v4
         with:
-          name: RemoteDroidGuard-Server-debug.apk
-          path: remote-droidguard-server/build/outputs/apk/debug/*.apk
-          if-no-files-found: error 
+          name: apk-release
+          path: /tmp/release-apks/
+          if-no-files-found: error
+
+      - name: "Upload RemoteDroidGuard-Server.apk artifact"
+        if: matrix.target == 'Release'
+        uses: actions/upload-artifact@v4
+        with:
+          name: RemoteDroidGuard-Server.apk
+          path: /tmp/release-apks/RemoteDroidGuard-Server.apk
+          if-no-files-found: warn
