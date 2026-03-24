@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ~ SPDX-FileCopyrightText: 2025 microG Project Team
+  ~ SPDX-License-Identifier: Apache-2.0
+  -->
+<alpha xmlns:android="http://schemas.android.com/apk/res/android"
+    android:duration="900"
+    android:fromAlpha="1.0"
+    android:interpolator="@android:anim/accelerate_decelerate_interpolator"
+    android:repeatCount="infinite"
+    android:repeatMode="reverse"
+    android:toAlpha="0.15" />

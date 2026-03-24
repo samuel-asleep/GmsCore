@@ -11,6 +11,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.content.res.ColorStateList
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.net.Uri
@@ -18,16 +19,19 @@ import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.util.Log
+import android.view.View
+import android.view.animation.AnimationUtils
 import android.widget.ImageView
 import android.widget.TextView
-import android.widget.Toast
-import android.widget.ToggleButton
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
+import com.google.android.material.button.MaterialButton
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.EncodeHintType
 import com.google.zxing.qrcode.QRCodeWriter
-import java.net.InetAddress
+import java.net.Inet4Address
 import java.net.NetworkInterface
 
 class MainActivity : AppCompatActivity() {
@@ -35,7 +39,11 @@ class MainActivity : AppCompatActivity() {
     private lateinit var qrCodeImage: ImageView
     private lateinit var tvStatus: TextView
     private lateinit var tvServerAddress: TextView
-    private lateinit var btnToggle: ToggleButton
+    private lateinit var tvWarning: TextView
+    private lateinit var btnToggle: MaterialButton
+    private lateinit var statusIndicator: View
+
+    private var serverRunning = false
 
     private val statusReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -57,17 +65,21 @@ class MainActivity : AppCompatActivity() {
         qrCodeImage = findViewById(R.id.qr_code_image)
         tvStatus = findViewById(R.id.tv_status)
         tvServerAddress = findViewById(R.id.tv_server_address)
+        tvWarning = findViewById(R.id.tv_warning)
         btnToggle = findViewById(R.id.btn_toggle_server)
+        statusIndicator = findViewById(R.id.status_indicator)
 
-        btnToggle.setOnCheckedChangeListener { _, isChecked ->
-            if (isChecked) {
+        btnToggle.setOnClickListener {
+            if (!serverRunning) {
                 requestPermissionsAndStart()
             } else {
                 stopServer()
             }
         }
 
+        updateButtonState(false)
         updateQrCode(null)
+        checkTailscaleInstalled()
     }
 
     override fun onResume() {
@@ -79,18 +91,15 @@ class MainActivity : AppCompatActivity() {
             @Suppress("UnspecifiedRegisterReceiverFlag")
             registerReceiver(statusReceiver, filter)
         }
-        // Sync toggle state with service running state
         val running = DroidGuardServerService.isRunning
-        if (btnToggle.isChecked != running) {
-            btnToggle.setOnCheckedChangeListener(null)
-            btnToggle.isChecked = running
-            btnToggle.setOnCheckedChangeListener { _, isChecked ->
-                if (isChecked) requestPermissionsAndStart() else stopServer()
-            }
+        if (running != serverRunning) {
+            updateButtonState(running)
         }
         if (!running) {
             tvStatus.setText(R.string.status_idle)
             tvServerAddress.text = ""
+            tvWarning.visibility = View.GONE
+            setIndicatorActive(false)
         }
     }
 
@@ -102,8 +111,35 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    // ---- Tailscale check ---------------------------------------------------
+
+    private fun checkTailscaleInstalled() {
+        try {
+            packageManager.getPackageInfo("com.tailscale.ipn", 0)
+        } catch (e: PackageManager.NameNotFoundException) {
+            showTailscaleRequiredDialog()
+        }
+    }
+
+    private fun showTailscaleRequiredDialog() {
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.dialog_tailscale_title)
+            .setMessage(R.string.dialog_tailscale_message)
+            .setPositiveButton(R.string.dialog_tailscale_install) { _, _ ->
+                val playStoreIntent = try {
+                    Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=com.tailscale.ipn"))
+                } catch (e: Exception) {
+                    Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=com.tailscale.ipn"))
+                }
+                startActivity(playStoreIntent)
+            }
+            .setNegativeButton(R.string.dialog_tailscale_dismiss, null)
+            .show()
+    }
+
+    // ---- Permissions & server start ----------------------------------------
+
     private fun requestPermissionsAndStart() {
-        // Request POST_NOTIFICATIONS on API 33+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
                 != PackageManager.PERMISSION_GRANTED
@@ -113,7 +149,6 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // Request ignore battery optimizations (API 23+)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             @Suppress("DEPRECATION")
             val pm = getSystemService(POWER_SERVICE) as android.os.PowerManager
@@ -149,6 +184,7 @@ class MainActivity : AppCompatActivity() {
             startService(intent)
         }
         tvStatus.setText(R.string.status_idle)
+        tvServerAddress.text = getString(R.string.searching_tailscale_ip)
     }
 
     private fun stopServer() {
@@ -157,22 +193,31 @@ class MainActivity : AppCompatActivity() {
         startService(intent)
         tvStatus.setText(R.string.status_idle)
         tvServerAddress.text = ""
+        tvWarning.visibility = View.GONE
         updateQrCode(null)
+        updateButtonState(false)
+        setIndicatorActive(false)
     }
+
+    // ---- Status updates ----------------------------------------------------
 
     private fun updateStatus(status: String, ip: String?, port: Int) {
         when (status) {
             DroidGuardServerService.STATUS_LISTENING -> {
-                tvStatus.text = getString(R.string.status_listening, ip, port)
-                tvServerAddress.text = getString(R.string.server_address_format, ip ?: "0.0.0.0", port)
-                updateQrCode(ip?.let { getString(R.string.server_address_format, it, port) })
-                if (!btnToggle.isChecked) {
-                    btnToggle.setOnCheckedChangeListener(null)
-                    btnToggle.isChecked = true
-                    btnToggle.setOnCheckedChangeListener { _, isChecked ->
-                        if (isChecked) requestPermissionsAndStart() else stopServer()
-                    }
+                if (ip != null) {
+                    tvStatus.text = getString(R.string.status_listening, ip, port)
+                    tvServerAddress.text = getString(R.string.server_address_format, ip, port)
+                    updateQrCode(getString(R.string.server_address_format, ip, port))
+                    tvWarning.visibility = View.GONE
+                } else {
+                    tvStatus.setText(R.string.status_listening_no_ip)
+                    tvServerAddress.text = getString(R.string.searching_tailscale_ip)
+                    updateQrCode(null)
+                    tvWarning.text = getString(R.string.warning_no_tailscale_ip)
+                    tvWarning.visibility = View.VISIBLE
                 }
+                updateButtonState(true)
+                setIndicatorActive(true)
             }
             DroidGuardServerService.STATUS_PROCESSING -> {
                 tvStatus.setText(R.string.status_processing)
@@ -180,15 +225,36 @@ class MainActivity : AppCompatActivity() {
             DroidGuardServerService.STATUS_STOPPED -> {
                 tvStatus.setText(R.string.status_idle)
                 tvServerAddress.text = ""
+                tvWarning.visibility = View.GONE
                 updateQrCode(null)
-                if (btnToggle.isChecked) {
-                    btnToggle.setOnCheckedChangeListener(null)
-                    btnToggle.isChecked = false
-                    btnToggle.setOnCheckedChangeListener { _, isChecked ->
-                        if (isChecked) requestPermissionsAndStart() else stopServer()
-                    }
-                }
+                updateButtonState(false)
+                setIndicatorActive(false)
             }
+        }
+    }
+
+    // ---- UI helpers --------------------------------------------------------
+
+    private fun updateButtonState(running: Boolean) {
+        serverRunning = running
+        if (running) {
+            btnToggle.text = getString(R.string.btn_stop_server)
+            btnToggle.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#D32F2F"))
+        } else {
+            btnToggle.text = getString(R.string.btn_start_server)
+            btnToggle.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#388E3C"))
+        }
+    }
+
+    private fun setIndicatorActive(active: Boolean) {
+        val color = if (active) Color.parseColor("#4CAF50") else Color.parseColor("#9E9E9E")
+        ViewCompat.setBackgroundTintList(statusIndicator, ColorStateList.valueOf(color))
+        if (active) {
+            val anim = AnimationUtils.loadAnimation(this, R.anim.pulse)
+            statusIndicator.startAnimation(anim)
+        } else {
+            statusIndicator.clearAnimation()
+            statusIndicator.alpha = 1f
         }
     }
 
@@ -198,15 +264,14 @@ class MainActivity : AppCompatActivity() {
             return
         }
         try {
-            val size = 500
+            val size = 1024
             val hints = mapOf(EncodeHintType.MARGIN to 1)
             val bitMatrix = QRCodeWriter().encode(content, BarcodeFormat.QR_CODE, size, size, hints)
-            val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.RGB_565)
-            for (x in 0 until size) {
-                for (y in 0 until size) {
-                    bitmap.setPixel(x, y, if (bitMatrix[x, y]) Color.BLACK else Color.WHITE)
-                }
+            val pixels = IntArray(size * size) { i ->
+                if (bitMatrix[i % size, i / size]) Color.BLACK else Color.WHITE
             }
+            val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+            bitmap.setPixels(pixels, 0, size, 0, 0, size, size)
             qrCodeImage.setImageBitmap(bitmap)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to generate QR code", e)
@@ -217,25 +282,21 @@ class MainActivity : AppCompatActivity() {
         private const val TAG = "DroidGuardServerMain"
         private const val REQ_NOTIFICATION = 1001
 
-        /** Returns the device's first Tailscale IP (100.x.x.x in the CGNAT range). */
+        /**
+         * Returns the device's Tailscale IP by looking specifically at the
+         * 'tailscale0' network interface. Returns null if Tailscale is not
+         * running or no IPv4 address is assigned to that interface.
+         */
         fun getTailscaleIp(): String? {
             return try {
-                NetworkInterface.getNetworkInterfaces()?.toList()
-                    ?.flatMap { it.inetAddresses.toList() }
-                    ?.firstOrNull { addr ->
-                        !addr.isLoopbackAddress && addr is java.net.Inet4Address
-                            && isTailscaleAddress(addr)
-                    }?.hostAddress
+                val iface = NetworkInterface.getByName("tailscale0") ?: return null
+                iface.inetAddresses.toList()
+                    .firstOrNull { !it.isLoopbackAddress && it is Inet4Address }
+                    ?.hostAddress
             } catch (e: Exception) {
+                Log.w(TAG, "Could not read tailscale0 interface", e)
                 null
             }
-        }
-
-        private fun isTailscaleAddress(addr: InetAddress): Boolean {
-            val bytes = addr.address
-            // Tailscale uses 100.64.0.0/10 (CGNAT range shared with Tailscale)
-            // First octet = 100, second octet 64..127
-            return bytes[0] == 100.toByte() && (bytes[1].toInt() and 0xFF) in 64..127
         }
     }
 }
