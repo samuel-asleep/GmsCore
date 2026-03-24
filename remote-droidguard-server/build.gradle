@@ -12,7 +12,7 @@ android {
     buildToolsVersion "$androidBuildVersionTools"
 
     defaultConfig {
-        applicationId "org.microg.gms.droidguard.server"
+        applicationId "org.microg.gms.droidguard.remote_server"
         versionName "1.0.0"
         versionCode 1
         minSdkVersion 21

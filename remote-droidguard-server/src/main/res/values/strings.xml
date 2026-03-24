@@ -4,7 +4,7 @@
   ~ SPDX-License-Identifier: Apache-2.0
   -->
 <resources>
-    <string name="app_name">Remote DroidGuard Server</string>
+    <string name="app_name">DG Server</string>
     <string name="qr_code_description">QR code for connecting to this DroidGuard server</string>
     <string name="status_label">Status:</string>
     <string name="status_idle">Idle</string>
