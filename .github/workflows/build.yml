@@ -100,31 +100,33 @@ jobs:
         if: matrix.target == 'Release'
         run: |
           mkdir -p /tmp/release-apks
+          # Find and copy core and vending APKs
           find play-services-core/build/outputs/apk/vtmDefault/release \
                vending-app/build/outputs/apk/default/release \
                -name '*.apk' -exec cp {} /tmp/release-apks/ \;
+          
+          # Copy and rename Remote DroidGuard Server APK
           rdg_apk=$(find remote-droidguard-server/build/outputs/apk/release -name '*.apk' | head -1)
           if [ -n "$rdg_apk" ]; then
             cp "$rdg_apk" /tmp/release-apks/RemoteDroidGuard-Server.apk
           fi
 
-      - name: "Sign RemoteDroidGuard-Server.apk with debug key"
+      - name: "Sign all release APKs with debug key"
         if: matrix.target == 'Release'
         run: |
-          # Locate the debug keystore usually provided by the Android SDK setup on GitHub Runners
+          # 1. Prepare the debug keystore
           DEBUG_KEYSTORE="$ANDROID_SDK_ROOT/build-tools/$(ls -1 $ANDROID_SDK_ROOT/build-tools | sort -r | head -1)/debug.keystore"
-          
-          # If the default SDK keystore isn't found, generate a temporary one
           if [ ! -f "$DEBUG_KEYSTORE" ]; then
             keytool -genkey -v -keystore /tmp/debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
             DEBUG_KEYSTORE="/tmp/debug.keystore"
           fi
-          
-          # Use apksigner to sign the APK
-          apksigner sign --ks "$DEBUG_KEYSTORE" --ks-pass pass:android --key-pass pass:android --ks-key-alias androiddebugkey /tmp/release-apks/RemoteDroidGuard-Server.apk
-          
-          # Verify the signature
-          apksigner verify /tmp/release-apks/RemoteDroidGuard-Server.apk
+
+          # 2. Sign every APK in the staging directory
+          for apk in /tmp/release-apks/*.apk; do
+            echo "Signing $apk..."
+            apksigner sign --ks "$DEBUG_KEYSTORE" --ks-pass pass:android --key-pass pass:android --ks-key-alias androiddebugkey "$apk"
+            apksigner verify "$apk"
+          done
 
       - name: "Upload APK artifacts"
         if: matrix.target == 'Release'
