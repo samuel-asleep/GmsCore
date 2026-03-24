@@ -1,9 +1,14 @@
 name: "Gradle build"
 permissions: {}
 on:
-  - push
-  - pull_request
-  - workflow_dispatch
+  push:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch, tag, or commit SHA to build (defaults to the current branch)"
+        required: false
+        default: ""
 
 jobs:
   build:
@@ -15,6 +20,21 @@ jobs:
     strategy:
       matrix:
         target: [Debug, Release]
+        include:
+          # Debug: build all variants so every flavor is compile-checked.
+          - target: Debug
+            assembleTask: assembleDebug
+            lintTask: lintDebug
+          # Release: build only the primary open-source variant (vtm maps +
+          # default Android target) to produce a ~100 MB artifact instead of
+          # packaging all 15 flavor combinations (~1 GB).
+          - target: Release
+            assembleTask: >-
+              :play-services-core:assembleVtmDefaultRelease
+              :vending-app:assembleDefaultRelease
+            lintTask: >-
+              :play-services-core:lintVtmDefaultRelease
+              :vending-app:lintDefaultRelease
 
     steps:
       - name: "Free disk space"
@@ -29,6 +49,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
+          ref: ${{ inputs.ref || github.ref }}
       - name: "Setup Java"
         uses: actions/setup-java@v5
         with:
@@ -59,6 +80,40 @@ jobs:
             fi
           done
       - name: "Execute Gradle assemble"
-        run: "./gradlew assemble${{ matrix.target }}"
+        run: "./gradlew ${{ matrix.assembleTask }}"
       - name: "Execute Gradle lint"
-        run: "./gradlew lint${{ matrix.target }}"
+        run: "./gradlew ${{ matrix.lintTask }}"
+      - name: "Verify APK sizes"
+        run: |
+          # Find all output APKs (exclude intermediates) and verify none exceed 1 GB
+          limit_bytes=$((1024 * 1024 * 1024))
+          found=0
+          oversized=0
+          while IFS= read -r apk; do
+            size=$(wc -c < "$apk")
+            size_mb=$(( size / 1024 / 1024 ))
+            echo "APK: $apk  size: ${size_mb} MB"
+            found=$(( found + 1 ))
+            if [ "$size" -gt "$limit_bytes" ]; then
+              echo "::error file=$apk::APK exceeds 1 GB limit (${size_mb} MB)"
+              oversized=$(( oversized + 1 ))
+            fi
+          done < <(find . -name '*.apk' -not -path '*/intermediates/*')
+          echo "Found $found APK(s), $oversized oversized."
+          if [ "$oversized" -gt 0 ]; then
+            exit 1
+          fi
+      - name: "Stage release APKs"
+        if: matrix.target == 'Release'
+        run: |
+          mkdir -p /tmp/release-apks
+          find play-services-core/build/outputs/apk/vtmDefault/release \
+               vending-app/build/outputs/apk/default/release \
+               -name '*.apk' -exec cp {} /tmp/release-apks/ \;
+      - name: "Upload APK artifacts"
+        if: matrix.target == 'Release'
+        uses: actions/upload-artifact@v4
+        with:
+          name: apk-release
+          path: /tmp/release-apks/
+          if-no-files-found: error
