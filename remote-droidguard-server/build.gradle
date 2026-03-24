@@ -52,8 +52,6 @@ dependencies {
     implementation project(':play-services-droidguard')
     implementation project(':play-services-tasks-ktx')
 
-    implementation "com.google.zxing:core:3.5.3"
-
     implementation "androidx.core:core-ktx:$coreVersion"
     implementation "androidx.appcompat:appcompat:$appcompatVersion"
     implementation "com.google.android.material:material:$materialVersion"

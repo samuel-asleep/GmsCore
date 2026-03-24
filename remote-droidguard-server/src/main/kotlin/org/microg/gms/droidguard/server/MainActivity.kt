@@ -7,12 +7,13 @@ package org.microg.gms.droidguard.server
 
 import android.Manifest
 import android.content.BroadcastReceiver
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.content.res.ColorStateList
-import android.graphics.Bitmap
 import android.graphics.Color
 import android.net.Uri
 import android.os.Build
@@ -23,27 +24,27 @@ import android.view.View
 import android.view.animation.AnimationUtils
 import android.widget.ImageView
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import com.google.zxing.BarcodeFormat
-import com.google.zxing.EncodeHintType
-import com.google.zxing.qrcode.QRCodeWriter
 import java.net.Inet4Address
 import java.net.NetworkInterface
 
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var qrCodeImage: ImageView
+    private lateinit var tvTailscaleIp: TextView
+    private lateinit var btnCopyIp: MaterialButton
     private lateinit var tvStatus: TextView
-    private lateinit var tvServerAddress: TextView
     private lateinit var tvWarning: TextView
     private lateinit var btnToggle: MaterialButton
+    private lateinit var btnTailscaleAction: MaterialButton
     private lateinit var statusIndicator: View
 
     private var serverRunning = false
+    private var currentIp: String? = null
 
     private val statusReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -62,11 +63,12 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        qrCodeImage = findViewById(R.id.qr_code_image)
+        tvTailscaleIp = findViewById(R.id.tv_tailscale_ip)
+        btnCopyIp = findViewById(R.id.btn_copy_ip)
         tvStatus = findViewById(R.id.tv_status)
-        tvServerAddress = findViewById(R.id.tv_server_address)
         tvWarning = findViewById(R.id.tv_warning)
         btnToggle = findViewById(R.id.btn_toggle_server)
+        btnTailscaleAction = findViewById(R.id.btn_tailscale_action)
         statusIndicator = findViewById(R.id.status_indicator)
 
         btnToggle.setOnClickListener {
@@ -77,9 +79,16 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        btnCopyIp.setOnClickListener {
+            copyIpToClipboard()
+        }
+
+        btnTailscaleAction.setOnClickListener {
+            openTailscaleApp()
+        }
+
         updateButtonState(false)
-        updateQrCode(null)
-        checkTailscaleInstalled()
+        checkTailscaleAndUpdateUI()
     }
 
     override fun onResume() {
@@ -97,10 +106,10 @@ class MainActivity : AppCompatActivity() {
         }
         if (!running) {
             tvStatus.setText(R.string.status_idle)
-            tvServerAddress.text = ""
             tvWarning.visibility = View.GONE
             setIndicatorActive(false)
         }
+        checkTailscaleAndUpdateUI()
     }
 
     override fun onPause() {
@@ -111,30 +120,74 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // ---- Tailscale check ---------------------------------------------------
+    // ---- Tailscale check & UI update --------------------------------------
 
-    private fun checkTailscaleInstalled() {
-        try {
-            packageManager.getPackageInfo("com.tailscale.ipn", 0)
-        } catch (e: PackageManager.NameNotFoundException) {
-            showTailscaleRequiredDialog()
+    private fun checkTailscaleAndUpdateUI() {
+        val isTailscaleInstalled = isTailscaleInstalled()
+        val tailscaleIp = getTailscaleIp()
+
+        currentIp = tailscaleIp
+
+        if (!isTailscaleInstalled) {
+            // Tailscale not installed
+            tvTailscaleIp.text = getString(R.string.tailscale_not_installed)
+            btnTailscaleAction.text = getString(R.string.btn_install_tailscale)
+            btnTailscaleAction.visibility = View.VISIBLE
+            btnCopyIp.isEnabled = false
+        } else if (tailscaleIp == null) {
+            // Tailscale installed but not connected
+            tvTailscaleIp.text = getString(R.string.tailscale_not_active)
+            btnTailscaleAction.text = getString(R.string.btn_open_tailscale)
+            btnTailscaleAction.visibility = View.VISIBLE
+            btnCopyIp.isEnabled = false
+        } else {
+            // Tailscale connected with IP
+            tvTailscaleIp.text = getString(R.string.tailscale_ip_format, tailscaleIp, DroidGuardServerService.DEFAULT_PORT)
+            btnTailscaleAction.visibility = View.GONE
+            btnCopyIp.isEnabled = true
         }
     }
 
-    private fun showTailscaleRequiredDialog() {
-        MaterialAlertDialogBuilder(this)
-            .setTitle(R.string.dialog_tailscale_title)
-            .setMessage(R.string.dialog_tailscale_message)
-            .setPositiveButton(R.string.dialog_tailscale_install) { _, _ ->
-                val playStoreIntent = try {
-                    Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=com.tailscale.ipn"))
-                } catch (e: Exception) {
-                    Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=com.tailscale.ipn"))
-                }
-                startActivity(playStoreIntent)
+    private fun isTailscaleInstalled(): Boolean {
+        return try {
+            packageManager.getPackageInfo("com.tailscale.ipn", 0)
+            true
+        } catch (e: PackageManager.NameNotFoundException) {
+            false
+        }
+    }
+
+    private fun openTailscaleApp() {
+        if (!isTailscaleInstalled()) {
+            // Open Play Store to install
+            val playStoreIntent = try {
+                Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=com.tailscale.ipn"))
+            } catch (e: Exception) {
+                Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=com.tailscale.ipn"))
             }
-            .setNegativeButton(R.string.dialog_tailscale_dismiss, null)
-            .show()
+            startActivity(playStoreIntent)
+        } else {
+            // Open Tailscale app
+            val launchIntent = packageManager.getLaunchIntentForPackage("com.tailscale.ipn")
+            if (launchIntent != null) {
+                startActivity(launchIntent)
+            } else {
+                Toast.makeText(this, R.string.cannot_open_tailscale, Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private fun copyIpToClipboard() {
+        val ip = currentIp
+        if (ip != null) {
+            val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            val clip = ClipData.newPlainText(
+                getString(R.string.clipboard_label),
+                getString(R.string.server_address_format, ip, DroidGuardServerService.DEFAULT_PORT)
+            )
+            clipboard.setPrimaryClip(clip)
+            Toast.makeText(this, R.string.ip_copied, Toast.LENGTH_SHORT).show()
+        }
     }
 
     // ---- Permissions & server start ----------------------------------------
@@ -184,7 +237,6 @@ class MainActivity : AppCompatActivity() {
             startService(intent)
         }
         tvStatus.setText(R.string.status_idle)
-        tvServerAddress.text = getString(R.string.searching_tailscale_ip)
     }
 
     private fun stopServer() {
@@ -192,9 +244,7 @@ class MainActivity : AppCompatActivity() {
             .setAction(DroidGuardServerService.ACTION_STOP)
         startService(intent)
         tvStatus.setText(R.string.status_idle)
-        tvServerAddress.text = ""
         tvWarning.visibility = View.GONE
-        updateQrCode(null)
         updateButtonState(false)
         setIndicatorActive(false)
     }
@@ -206,13 +256,15 @@ class MainActivity : AppCompatActivity() {
             DroidGuardServerService.STATUS_LISTENING -> {
                 if (ip != null) {
                     tvStatus.text = getString(R.string.status_listening, ip, port)
-                    tvServerAddress.text = getString(R.string.server_address_format, ip, port)
-                    updateQrCode(getString(R.string.server_address_format, ip, port))
+                    currentIp = ip
+                    tvTailscaleIp.text = getString(R.string.tailscale_ip_format, ip, port)
+                    btnCopyIp.isEnabled = true
                     tvWarning.visibility = View.GONE
                 } else {
                     tvStatus.setText(R.string.status_listening_no_ip)
-                    tvServerAddress.text = getString(R.string.searching_tailscale_ip)
-                    updateQrCode(null)
+                    currentIp = null
+                    tvTailscaleIp.text = getString(R.string.tailscale_not_active)
+                    btnCopyIp.isEnabled = false
                     tvWarning.text = getString(R.string.warning_no_tailscale_ip)
                     tvWarning.visibility = View.VISIBLE
                 }
@@ -224,11 +276,10 @@ class MainActivity : AppCompatActivity() {
             }
             DroidGuardServerService.STATUS_STOPPED -> {
                 tvStatus.setText(R.string.status_idle)
-                tvServerAddress.text = ""
                 tvWarning.visibility = View.GONE
-                updateQrCode(null)
                 updateButtonState(false)
                 setIndicatorActive(false)
+                checkTailscaleAndUpdateUI()
             }
         }
     }
@@ -258,45 +309,52 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun updateQrCode(content: String?) {
-        if (content.isNullOrBlank()) {
-            qrCodeImage.setImageResource(android.R.drawable.ic_dialog_info)
-            return
-        }
-        try {
-            val size = 1024
-            val hints = mapOf(EncodeHintType.MARGIN to 1)
-            val bitMatrix = QRCodeWriter().encode(content, BarcodeFormat.QR_CODE, size, size, hints)
-            val pixels = IntArray(size * size) { i ->
-                if (bitMatrix[i % size, i / size]) Color.BLACK else Color.WHITE
-            }
-            val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
-            bitmap.setPixels(pixels, 0, size, 0, 0, size, size)
-            qrCodeImage.setImageBitmap(bitmap)
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to generate QR code", e)
-        }
-    }
-
     companion object {
         private const val TAG = "DroidGuardServerMain"
         private const val REQ_NOTIFICATION = 1001
 
         /**
-         * Returns the device's Tailscale IP by looking specifically at the
-         * 'tailscale0' network interface. Returns null if Tailscale is not
-         * running or no IPv4 address is assigned to that interface.
+         * Returns the device's Tailscale IP by enumerating all network interfaces
+         * and checking for addresses in the Tailscale CGNAT range (100.64.0.0/10).
+         * Returns null if Tailscale is not running or no IPv4 address is found.
          */
         fun getTailscaleIp(): String? {
             return try {
-                val iface = NetworkInterface.getByName("tailscale0") ?: return null
-                iface.inetAddresses.toList()
-                    .firstOrNull { !it.isLoopbackAddress && it is Inet4Address }
-                    ?.hostAddress
+                val interfaces = NetworkInterface.getNetworkInterfaces()
+                while (interfaces.hasMoreElements()) {
+                    val iface = interfaces.nextElement()
+                    if (!iface.isUp) continue
+
+                    val addresses = iface.inetAddresses.toList()
+                    val tailscaleIp = addresses
+                        .filterIsInstance<Inet4Address>()
+                        .firstOrNull { addr ->
+                            !addr.isLoopbackAddress && isTailscaleIp(addr)
+                        }
+
+                    if (tailscaleIp != null) {
+                        Log.i(TAG, "Found Tailscale IP: ${tailscaleIp.hostAddress} on interface ${iface.name}")
+                        return tailscaleIp.hostAddress
+                    }
+                }
+                Log.w(TAG, "No Tailscale IP found in any network interface")
+                null
             } catch (e: Exception) {
-                Log.w(TAG, "Could not read tailscale0 interface", e)
+                Log.w(TAG, "Could not enumerate network interfaces", e)
                 null
             }
+        }
+
+        /**
+         * Checks if an IPv4 address is in the Tailscale CGNAT range (100.64.0.0/10).
+         * This range is 100.64.0.0 - 100.127.255.255.
+         */
+        private fun isTailscaleIp(addr: Inet4Address): Boolean {
+            val bytes = addr.address
+            val firstOctet = bytes[0].toInt() and 0xFF
+            val secondOctet = bytes[1].toInt() and 0xFF
+
+            return firstOctet == 100 && secondOctet in 64..127
         }
     }
 }

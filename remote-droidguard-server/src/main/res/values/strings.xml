@@ -6,7 +6,6 @@
 <resources>
     <string name="app_name">DG Server</string>
     <string name="header_title">DroidGuard Server Status</string>
-    <string name="qr_code_description">QR code for connecting to this DroidGuard server</string>
     <string name="status_label">Status:</string>
     <string name="status_idle">Idle</string>
     <string name="status_listening">Listening on %1$s:%2$d</string>
@@ -14,7 +13,6 @@
     <string name="status_processing">Processing</string>
     <string name="btn_start_server">Start Server</string>
     <string name="btn_stop_server">Stop Server</string>
-    <string name="searching_tailscale_ip">Searching for Tailscale IP\u2026</string>
     <string name="warning_no_tailscale_ip">Warning: No Tailscale IP detected. Local connections only.</string>
     <string name="notification_channel_name">DroidGuard Server</string>
     <string name="notification_channel_description">Foreground notification for the Remote DroidGuard Server</string>
@@ -23,8 +21,16 @@
     <string name="notification_text_listening">Listening on %1$s:%2$d</string>
     <string name="notification_text_processing">Processing a DroidGuard challenge\u2026</string>
     <string name="server_address_format">microg-dg://%1$s:%2$d</string>
-    <string name="dialog_tailscale_title">Tailscale Required</string>
-    <string name="dialog_tailscale_message">This app uses Tailscale to expose the DroidGuard server over a secure private network. Please install Tailscale to enable remote connections.</string>
-    <string name="dialog_tailscale_install">Install Tailscale</string>
-    <string name="dialog_tailscale_dismiss">Dismiss</string>
+
+    <!-- Tailscale-specific strings -->
+    <string name="tailscale_ip_label">TAILSCALE IP</string>
+    <string name="tailscale_ip_format">%1$s:%2$d</string>
+    <string name="tailscale_not_installed">Tailscale not installed</string>
+    <string name="tailscale_not_active">Searching for Tailscale\u2026 (Ensure Tailscale app is Active)</string>
+    <string name="btn_install_tailscale">Install Tailscale from Play Store</string>
+    <string name="btn_open_tailscale">Open Tailscale App</string>
+    <string name="btn_copy_ip">Copy IP to Clipboard</string>
+    <string name="clipboard_label">DroidGuard Server Address</string>
+    <string name="ip_copied">IP address copied to clipboard</string>
+    <string name="cannot_open_tailscale">Cannot open Tailscale app</string>
 </resources>

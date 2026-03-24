@@ -38,33 +38,58 @@
                 android:textStyle="bold" />
         </LinearLayout>
 
-        <!-- QR Code housed in a MaterialCardView for a clean, raised look -->
+        <!-- Large Tailscale IP Display Card -->
         <com.google.android.material.card.MaterialCardView
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="20dp"
             app:cardCornerRadius="12dp"
             app:cardElevation="6dp"
-            app:contentPaddingBottom="12dp"
-            app:contentPaddingLeft="12dp"
-            app:contentPaddingRight="12dp"
-            app:contentPaddingTop="12dp">
+            app:contentPadding="20dp">
 
-            <ImageView
-                android:id="@+id/qr_code_image"
-                android:layout_width="280dp"
-                android:layout_height="280dp"
-                android:contentDescription="@string/qr_code_description"
-                android:scaleType="fitCenter" />
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="8dp"
+                    android:text="@string/tailscale_ip_label"
+                    android:textAppearance="?attr/textAppearanceCaption"
+                    android:textColor="?android:attr/textColorSecondary" />
+
+                <TextView
+                    android:id="@+id/tv_tailscale_ip"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="12dp"
+                    android:text="@string/tailscale_not_active"
+                    android:textAppearance="?attr/textAppearanceHeadline5"
+                    android:textStyle="bold"
+                    android:textColor="?android:attr/textColorPrimary" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_copy_ip"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/btn_copy_ip"
+                    app:icon="@android:drawable/ic_menu_save"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
+            </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- Tailscale IP / server address -->
-        <TextView
-            android:id="@+id/tv_server_address"
-            android:layout_width="wrap_content"
+        <!-- Tailscale Action Button (Install or Open) -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_tailscale_action"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="8dp"
-            android:textAppearance="?attr/textAppearanceBody2" />
+            android:layout_marginBottom="16dp"
+            android:text="@string/btn_install_tailscale"
+            android:visibility="gone"
+            app:icon="@android:drawable/ic_menu_info_details"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
 
         <!-- Status row -->
         <LinearLayout
@@ -103,10 +128,10 @@
         <!-- Start/Stop MaterialButton with dynamic green/red tint -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_toggle_server"
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
-            android:minWidth="200dp"
+            android:minHeight="56dp"
             android:text="@string/btn_start_server" />
 
     </LinearLayout>
