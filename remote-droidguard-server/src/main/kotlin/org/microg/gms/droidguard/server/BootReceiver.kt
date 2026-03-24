@@ -13,13 +13,22 @@ import android.util.Log
 
 /**
  * Starts [DroidGuardServerService] automatically when the device boots,
- * if it was running before the reboot.
+ * if the user has enabled "Start Server on Boot" in SharedPreferences.
  */
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != Intent.ACTION_BOOT_COMPLETED &&
             intent.action != "android.intent.action.QUICKBOOT_POWERON"
         ) return
+
+        // Check if boot start is enabled in SharedPreferences
+        val prefs = context.getSharedPreferences("droidguard_server_prefs", Context.MODE_PRIVATE)
+        val bootStartEnabled = prefs.getBoolean(MainActivity.PREF_BOOT_START, true)
+
+        if (!bootStartEnabled) {
+            Log.i(TAG, "Boot start is disabled — not starting DroidGuardServerService")
+            return
+        }
 
         Log.i(TAG, "Boot completed — starting DroidGuardServerService")
         val serviceIntent = Intent(context, DroidGuardServerService::class.java)

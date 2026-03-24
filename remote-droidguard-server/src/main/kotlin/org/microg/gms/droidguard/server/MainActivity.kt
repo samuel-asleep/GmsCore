@@ -12,6 +12,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.content.res.ColorStateList
 import android.graphics.Color
@@ -30,6 +31,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.switchmaterial.SwitchMaterial
 import java.net.Inet4Address
 import java.net.NetworkInterface
 
@@ -41,10 +43,13 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tvWarning: TextView
     private lateinit var btnToggle: MaterialButton
     private lateinit var btnTailscaleAction: MaterialButton
+    private lateinit var switchBootStart: SwitchMaterial
     private lateinit var statusIndicator: View
 
     private var serverRunning = false
     private var currentIp: String? = null
+
+    private lateinit var prefs: SharedPreferences
 
     private val statusReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -63,13 +68,23 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+
         tvTailscaleIp = findViewById(R.id.tv_tailscale_ip)
         btnCopyIp = findViewById(R.id.btn_copy_ip)
         tvStatus = findViewById(R.id.tv_status)
         tvWarning = findViewById(R.id.tv_warning)
         btnToggle = findViewById(R.id.btn_toggle_server)
         btnTailscaleAction = findViewById(R.id.btn_tailscale_action)
+        switchBootStart = findViewById(R.id.switch_boot_start)
         statusIndicator = findViewById(R.id.status_indicator)
+
+        // Initialize boot start toggle from SharedPreferences (default: true)
+        switchBootStart.isChecked = prefs.getBoolean(PREF_BOOT_START, true)
+        switchBootStart.setOnCheckedChangeListener { _, isChecked ->
+            prefs.edit().putBoolean(PREF_BOOT_START, isChecked).apply()
+            Log.i(TAG, "Boot start preference changed to: $isChecked")
+        }
 
         btnToggle.setOnClickListener {
             if (!serverRunning) {
@@ -89,6 +104,9 @@ class MainActivity : AppCompatActivity() {
 
         updateButtonState(false)
         checkTailscaleAndUpdateUI()
+
+        // Check battery optimization on first launch
+        checkBatteryOptimizationOnFirstLaunch()
     }
 
     override fun onResume() {
@@ -121,6 +139,45 @@ class MainActivity : AppCompatActivity() {
     }
 
     // ---- Tailscale check & UI update --------------------------------------
+
+    private fun checkBatteryOptimizationOnFirstLaunch() {
+        // Only show dialog on first launch
+        val isFirstLaunch = prefs.getBoolean(PREF_FIRST_LAUNCH, true)
+        if (!isFirstLaunch) return
+
+        // Mark as no longer first launch
+        prefs.edit().putBoolean(PREF_FIRST_LAUNCH, false).apply()
+
+        // Check if battery optimization is already disabled
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            @Suppress("DEPRECATION")
+            val pm = getSystemService(POWER_SERVICE) as android.os.PowerManager
+            if (!pm.isIgnoringBatteryOptimizations(packageName)) {
+                showBatteryOptimizationDialog()
+            }
+        }
+    }
+
+    private fun showBatteryOptimizationDialog() {
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.dialog_battery_title)
+            .setMessage(R.string.dialog_battery_message)
+            .setPositiveButton(R.string.dialog_battery_settings) { _, _ ->
+                try {
+                    startActivity(
+                        Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                            data = Uri.parse("package:$packageName")
+                        }
+                    )
+                } catch (e: Exception) {
+                    Log.w(TAG, "Cannot open battery optimization settings", e)
+                    Toast.makeText(this, R.string.cannot_open_settings, Toast.LENGTH_SHORT).show()
+                }
+            }
+            .setNegativeButton(R.string.dialog_battery_later, null)
+            .setCancelable(false)
+            .show()
+    }
 
     private fun checkTailscaleAndUpdateUI() {
         val isTailscaleInstalled = isTailscaleInstalled()
@@ -199,22 +256,6 @@ class MainActivity : AppCompatActivity() {
             ) {
                 requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), REQ_NOTIFICATION)
                 return
-            }
-        }
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            @Suppress("DEPRECATION")
-            val pm = getSystemService(POWER_SERVICE) as android.os.PowerManager
-            if (!pm.isIgnoringBatteryOptimizations(packageName)) {
-                try {
-                    startActivity(
-                        Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
-                            data = Uri.parse("package:$packageName")
-                        }
-                    )
-                } catch (e: Exception) {
-                    Log.w(TAG, "Cannot request battery optimization exemption", e)
-                }
             }
         }
 
@@ -312,6 +353,10 @@ class MainActivity : AppCompatActivity() {
     companion object {
         private const val TAG = "DroidGuardServerMain"
         private const val REQ_NOTIFICATION = 1001
+
+        private const val PREFS_NAME = "droidguard_server_prefs"
+        private const val PREF_FIRST_LAUNCH = "first_launch"
+        const val PREF_BOOT_START = "boot_start"
 
         /**
          * Returns the device's Tailscale IP by enumerating all network interfaces
