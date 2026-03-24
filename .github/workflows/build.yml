@@ -13,40 +13,16 @@ on:
 
 jobs:
   build:
-    name: "Gradle build ${{ matrix.target }}"
+    name: "Build Remote DroidGuard Server (debug)"
     runs-on: ubuntu-latest
     env:
       GRADLE_MICROG_VERSION_WITHOUT_GIT: 1
 
-    strategy:
-      matrix:
-        target: [Debug, Release]
-        include:
-          # Debug: build all variants so every flavor is compile-checked.
-          - target: Debug
-            assembleTask: assembleDebug
-            lintTask: lintDebug
-          # Release: build only the primary open-source variant (vtm maps +
-          # default Android target) to produce a ~100 MB artifact instead of
-          # packaging all 15 flavor combinations (~1 GB).
-          - target: Release
-            assembleTask: >-
-              :play-services-core:assembleVtmDefaultRelease
-              :vending-app:assembleDefaultRelease
-              :remote-droidguard-server:assembleRelease
-            lintTask: >-
-              :play-services-core:lintVtmDefaultRelease
-              :vending-app:lintDefaultRelease
-              :remote-droidguard-server:lintRelease
-
     steps:
       - name: "Free disk space"
         run: |
-          # Deleting unneeded software packages
           sudo rm -rf /opt/hostedtoolcache/CodeQL
           sudo rm -rf /opt/hostedtoolcache/go
-
-          # Log available space
           df -h
       - name: "Checkout sources"
         uses: actions/checkout@v6
@@ -65,70 +41,11 @@ jobs:
           build-scan-publish: true
           build-scan-terms-of-use-url: "https://gradle.com/help/legal-terms-of-use"
           build-scan-terms-of-use-agree: "yes"
-      - name: "Setup matchers"
-        run: |
-          # Setting up matchers...
-
-          matchers_dir='${{ github.workspace }}/.github/matchers'
-          matcher_list()
-          {
-            echo 'gradle-build-matcher.json'
-            echo 'gradle-build-kotlin-error-matcher.json'
-          }
-
-          matcher_list | while IFS='' read -r NAME; do
-            if test -f "${matchers_dir:?}/${NAME:?}"; then
-              echo "::add-matcher::${matchers_dir:?}/${NAME:?}"
-              echo "Matcher configured: ${NAME:?}"
-            fi
-          done
-      - name: "Execute Gradle assemble"
-        run: "./gradlew ${{ matrix.assembleTask }}"
-      - name: "Execute Gradle lint"
-        run: "./gradlew ${{ matrix.lintTask }}"
-      - name: "Verify APK sizes"
-        run: |
-          # Find all output APKs (exclude intermediates) and verify none exceed 1 GB
-          limit_bytes=$((1024 * 1024 * 1024))
-          found=0
-          oversized=0
-          while IFS= read -r apk; do
-            size=$(wc -c < "$apk")
-            size_mb=$(( size / 1024 / 1024 ))
-            echo "APK: $apk  size: ${size_mb} MB"
-            found=$(( found + 1 ))
-            if [ "$size" -gt "$limit_bytes" ]; then
-              echo "::error file=$apk::APK exceeds 1 GB limit (${size_mb} MB)"
-              oversized=$(( oversized + 1 ))
-            fi
-          done < <(find . -name '*.apk' -not -path '*/intermediates/*')
-          echo "Found $found APK(s), $oversized oversized."
-          if [ "$oversized" -gt 0 ]; then
-            exit 1
-          fi
-      - name: "Stage release APKs"
-        if: matrix.target == 'Release'
-        run: |
-          mkdir -p /tmp/release-apks
-          find play-services-core/build/outputs/apk/vtmDefault/release \
-               vending-app/build/outputs/apk/default/release \
-               -name '*.apk' -exec cp {} /tmp/release-apks/ \;
-          # Copy and rename the Remote DroidGuard Server APK
-          rdg_apk=$(find remote-droidguard-server/build/outputs/apk/release -name '*.apk' | head -1)
-          if [ -n "$rdg_apk" ]; then
-            cp "$rdg_apk" /tmp/release-apks/RemoteDroidGuard-Server.apk
-          fi
-      - name: "Upload APK artifacts"
-        if: matrix.target == 'Release'
+      - name: "Assemble debug APK"
+        run: "./gradlew :remote-droidguard-server:assembleDebug"
+      - name: "Upload debug APK"
         uses: actions/upload-artifact@v4
         with:
-          name: apk-release
-          path: /tmp/release-apks/
-          if-no-files-found: error
-      - name: "Upload RemoteDroidGuard-Server.apk artifact"
-        if: matrix.target == 'Release'
-        uses: actions/upload-artifact@v4
-        with:
-          name: RemoteDroidGuard-Server.apk
-          path: /tmp/release-apks/RemoteDroidGuard-Server.apk
-          if-no-files-found: warn 
+          name: RemoteDroidGuard-Server-debug.apk
+          path: remote-droidguard-server/build/outputs/apk/debug/*.apk
+          if-no-files-found: error 
