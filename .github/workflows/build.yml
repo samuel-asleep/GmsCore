@@ -2,6 +2,7 @@ name: "Gradle build"
 permissions: {}
 on:
   push:
+    branches: [main, master]
   pull_request:
   workflow_dispatch:
     inputs:
@@ -32,9 +33,11 @@ jobs:
             assembleTask: >-
               :play-services-core:assembleVtmDefaultRelease
               :vending-app:assembleDefaultRelease
+              :remote-droidguard-server:assembleRelease
             lintTask: >-
               :play-services-core:lintVtmDefaultRelease
               :vending-app:lintDefaultRelease
+              :remote-droidguard-server:lintRelease
 
     steps:
       - name: "Free disk space"
@@ -110,6 +113,11 @@ jobs:
           find play-services-core/build/outputs/apk/vtmDefault/release \
                vending-app/build/outputs/apk/default/release \
                -name '*.apk' -exec cp {} /tmp/release-apks/ \;
+          # Copy and rename the Remote DroidGuard Server APK
+          rdg_apk=$(find remote-droidguard-server/build/outputs/apk/release -name '*.apk' | head -1)
+          if [ -n "$rdg_apk" ]; then
+            cp "$rdg_apk" /tmp/release-apks/RemoteDroidGuard-Server.apk
+          fi
       - name: "Upload APK artifacts"
         if: matrix.target == 'Release'
         uses: actions/upload-artifact@v4
@@ -117,3 +125,10 @@ jobs:
           name: apk-release
           path: /tmp/release-apks/
           if-no-files-found: error
+      - name: "Upload RemoteDroidGuard-Server.apk artifact"
+        if: matrix.target == 'Release'
+        uses: actions/upload-artifact@v4
+        with:
+          name: RemoteDroidGuard-Server.apk
+          path: /tmp/release-apks/RemoteDroidGuard-Server.apk
+          if-no-files-found: warn 
