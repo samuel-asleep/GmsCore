@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ~ SPDX-FileCopyrightText: 2025 microG Project Team
+  ~ SPDX-License-Identifier: Apache-2.0
+  -->
+<resources>
+    <string name="app_name">DG Server</string>
+    <string name="header_title">DroidGuard Server Status</string>
+    <string name="status_label">Status:</string>
+    <string name="status_idle">Idle</string>
+    <string name="status_listening">Listening on %1$s:%2$d</string>
+    <string name="status_listening_no_ip">Listening (no Tailscale IP)</string>
+    <string name="status_processing">Processing</string>
+    <string name="btn_start_server">Start Server</string>
+    <string name="btn_stop_server">Stop Server</string>
+    <string name="warning_no_tailscale_ip">Warning: No Tailscale IP detected. Local connections only.</string>
+    <string name="notification_channel_name">DroidGuard Server</string>
+    <string name="notification_channel_description">Foreground notification for the Remote DroidGuard Server</string>
+    <string name="notification_title">Remote DroidGuard Server</string>
+    <string name="notification_text_idle">Server is stopped</string>
+    <string name="notification_text_listening">Listening on %1$s:%2$d</string>
+    <string name="notification_text_processing">Processing a DroidGuard challenge\u2026</string>
+    <string name="server_address_format">microg-dg://%1$s:%2$d</string>
+
+    <!-- Tailscale-specific strings -->
+    <string name="tailscale_ip_label">TAILSCALE IP</string>
+    <string name="tailscale_ip_format">%1$s:%2$d</string>
+    <string name="tailscale_not_installed">Tailscale not installed</string>
+    <string name="tailscale_not_active">Searching for Tailscale\u2026 (Ensure Tailscale app is Active)</string>
+    <string name="btn_install_tailscale">Install Tailscale from Play Store</string>
+    <string name="btn_open_tailscale">Open Tailscale App</string>
+    <string name="btn_copy_ip">Copy IP to Clipboard</string>
+    <string name="clipboard_label">DroidGuard Server Address</string>
+    <string name="ip_copied">IP address copied to clipboard</string>
+    <string name="cannot_open_tailscale">Cannot open Tailscale app</string>
+
+    <!-- Battery optimization dialog -->
+    <string name="dialog_battery_title">Battery Optimization Required</string>
+    <string name="dialog_battery_message">To keep the server alive 24/7 and allow auto-start on boot, please set Battery to \'Unrestricted\' in the next screen.</string>
+    <string name="dialog_battery_settings">Open Settings</string>
+    <string name="dialog_battery_later">Later</string>
+    <string name="cannot_open_settings">Cannot open settings</string>
+
+    <!-- Boot start toggle -->
+    <string name="boot_start_title">Start Server on Boot</string>
+    <string name="boot_start_description">Automatically start the server when device boots</string>
+</resources>

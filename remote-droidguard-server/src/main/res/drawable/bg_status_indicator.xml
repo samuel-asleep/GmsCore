@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ~ SPDX-FileCopyrightText: 2025 microG Project Team
+  ~ SPDX-License-Identifier: Apache-2.0
+  -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">
+    <solid android:color="#9E9E9E" />
+</shape>

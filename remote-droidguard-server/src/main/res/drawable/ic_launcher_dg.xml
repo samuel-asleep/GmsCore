@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ~ SPDX-FileCopyrightText: 2025 microG Project Team
+  ~ SPDX-License-Identifier: Apache-2.0
+  -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+
+    <!-- Material Blue 700 (#1976D2) shield background -->
+    <path
+        android:fillColor="#1976D2"
+        android:pathData="M12,1L3,5v6c0,5.55,3.84,10.74,9,12c5.16,-1.26,9,-6.45,9,-12V5z" />
+
+    <!-- Left antenna (white line) -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="0.8"
+        android:strokeLineCap="round"
+        android:pathData="M10.2,7.5 L9.2,5.7" />
+
+    <!-- Right antenna (white line) -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="0.8"
+        android:strokeLineCap="round"
+        android:pathData="M13.8,7.5 L14.8,5.7" />
+
+    <!-- Left antenna tip (white circle) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M9.2,5.7 m-0.45,0 a0.45,0.45 0 1,0 0.9,0 a0.45,0.45 0 1,0 -0.9,0" />
+
+    <!-- Right antenna tip (white circle) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M14.8,5.7 m-0.45,0 a0.45,0.45 0 1,0 0.9,0 a0.45,0.45 0 1,0 -0.9,0" />
+
+    <!-- Head (white rounded rectangle) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M9,7.5 Q9,6.5 10,6.5 H14 Q15,6.5 15,7.5 V10.5 Q15,11.5 14,11.5 H10 Q9,11.5 9,10.5 Z" />
+
+    <!-- Left eye (shield-blue dot, cut into white head) -->
+    <path
+        android:fillColor="#1976D2"
+        android:pathData="M10.5,9 m-0.5,0 a0.5,0.5 0 1,0 1,0 a0.5,0.5 0 1,0 -1,0" />
+
+    <!-- Right eye (shield-blue dot, cut into white head) -->
+    <path
+        android:fillColor="#1976D2"
+        android:pathData="M13.5,9 m-0.5,0 a0.5,0.5 0 1,0 1,0 a0.5,0.5 0 1,0 -1,0" />
+
+    <!-- Body (white rounded rectangle) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M9.5,12 H14.5 Q15,12 15,12.5 V16 Q15,16.5 14.5,16.5 H9.5 Q9,16.5 9,16 V12.5 Q9,12 9.5,12 Z" />
+
+    <!-- Left arm (white rounded rectangle) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M7,12.5 Q7,12 7.5,12 H9 V16 H7.5 Q7,16 7,15.5 Z" />
+
+    <!-- Right arm (white rounded rectangle) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M15,12 H16.5 Q17,12 17,12.5 V15.5 Q17,16 16.5,16 H15 Z" />
+
+    <!-- Left leg (white rounded rectangle) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M9.5,17 H11 V19.5 Q11,20 10.5,20 H9.5 Q9,20 9,19.5 V17.5 Q9,17 9.5,17 Z" />
+
+    <!-- Right leg (white rounded rectangle) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M13,17 H14.5 Q15,17 15,17.5 V19.5 Q15,20 14.5,20 H13.5 Q13,20 13,19.5 V17 Z" />
+
+</vector>
