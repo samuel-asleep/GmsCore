@@ -117,3 +117,54 @@ jobs:
           name: apk-release
           path: /tmp/release-apks/
           if-no-files-found: error
+
+  build-remote-droidguard:
+    name: "Build Remote DroidGuard Server (debug)"
+    runs-on: ubuntu-latest
+    env:
+      GRADLE_MICROG_VERSION_WITHOUT_GIT: 1
+
+    steps:
+      - name: "Free disk space"
+        run: |
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          sudo rm -rf /opt/hostedtoolcache/go
+          df -h
+      - name: "Checkout sources"
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.ref || github.ref }}
+      - name: "Check if remote-droidguard-server folder exists"
+        id: check_folder
+        run: |
+          if [ -d "remote-droidguard-server" ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "remote-droidguard-server folder not found; skipping build."
+          fi
+      - name: "Setup Java"
+        if: steps.check_folder.outputs.exists == 'true'
+        uses: actions/setup-java@v5
+        with:
+          distribution: "temurin"
+          java-version: "17"
+      - name: "Setup Gradle"
+        if: steps.check_folder.outputs.exists == 'true'
+        uses: gradle/actions/setup-gradle@v5
+        with:
+          cache-encryption-key: ${{ secrets.GradleEncryptionKey }}
+          build-scan-publish: true
+          build-scan-terms-of-use-url: "https://gradle.com/help/legal-terms-of-use"
+          build-scan-terms-of-use-agree: "yes"
+      - name: "Assemble debug APK"
+        if: steps.check_folder.outputs.exists == 'true'
+        run: "./gradlew :remote-droidguard-server:assembleDebug"
+      - name: "Upload debug APK"
+        if: steps.check_folder.outputs.exists == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: RemoteDroidGuard-Server-debug.apk
+          path: remote-droidguard-server/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
